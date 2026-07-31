@@ -1,61 +1,61 @@
-<?php
-// Konfigurasi Database InfinityFree Royal Rajeg Cendana
-$host     = "sql205.infinityfree.com";
-$user     = "if0_41828680"; 
-$pass     = "Q7BLxZKxAgslm"; 
-$db_name  = "if0_41828680_royal_rajeg_cendana";
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const { Boom } = require('@hapi/boom');
+const cron = require('node-cron');
+const axios = require('axios');
+const pino = require('pino');
 
-$koneksi = mysqli_connect($host, $user, $pass, $db_name);
+async function mulaiBot() {
+    const { state, saveCreds } = await useMultiFileAuthState('auth_session');
+    
+    const sock = makeWASocket({
+        auth: state,
+        printQRInTerminal: true,
+        logger: pino({ level: 'silent' })
+    });
 
-if (!$koneksi) {
-    echo json_encode(["status" => "error", "pesan" => "Gagal koneksi database"]);
-    exit();
+    sock.ev.on('creds.update', saveCreds);
+
+    // Penjadwal: Setiap Tanggal 20 Jam 08:00 Pagi
+    cron.schedule('0 8 20 * *', async () => {
+        console.log('Menjalankan pengiriman laporan kas tanggal 20...');
+        try {
+            let response = await axios.get('https://cendanaroyalrajeg.infinityfreeapp.com/api-ai.php');
+            let data = response.data;
+
+            let formatRupiah = (angka) => {
+                return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(angka);
+            };
+
+            let pesanLaporan = `📊 *LAPORAN KAS WARGA ROYAL RAJEG CENDANA* 📊\n` +
+                               `🗓️ *Periode Per Tanggal 20*\n\n` +
+                               `📌 *KONDISI KEUANGAN S/D SAAT INI:*\n` +
+                               `• Total Penerimaan: ${formatRupiah(data.kumulatif.total_masuk_sd)}\n` +
+                               `• Total Pengeluaran: ${formatRupiah(data.kumulatif.total_keluar_sd)}\n` +
+                               `• *Total Sisa Uang Kas:* ${formatRupiah(data.kumulatif.sisa_kas_sd)}\n\n` +
+                               `📈 *MUTASI BULAN INI:*\n` +
+                               `• Masuk Bulan Ini: ${formatRupiah(data.bulan_ini.masuk_bulan_ini)}\n` +
+                               `• Keluar Bulan Ini: ${formatRupiah(data.bulan_ini.keluar_bulan_ini)}\n` +
+                               `• *Mutasi Saldo Bulan Ini:* ${formatRupiah(data.bulan_ini.mutasi_bulan_ini)}\n\n` +
+                               `Terima kasih. 🙏`;
+
+            let nomorTujuan = '628xxxxxxxxxx@s.whatsapp.net'; // Ganti nomor tujuan Anda
+            await sock.sendMessage(nomorTujuan, { text: pesanLaporan });
+            console.log('Laporan kas tanggal 20 berhasil dikirim!');
+
+        } catch (error) {
+            console.log('Gagal mengirim laporan otomatis:', error);
+        }
+    });
+
+    sock.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect } = update;
+        if (connection === 'close') {
+            const shouldReconnect = (lastDisconnect.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+            if (shouldReconnect) mulaiBot();
+        } else if (connection === 'open') {
+            console.log('Bot WhatsApp Berhasil Terhubung dan Siap!');
+        }
+    });
 }
 
-// Mendapatkan tahun dan bulan saat ini (Format: YYYY-MM, contoh: 2026-07)
-$tahun_bulan_ini = date('Y-m'); 
-
-// 1. Total Penerimaan Uang Masuk s/d saat ini (Table: cash_in)
-$q_in_all = mysqli_query($koneksi, "SELECT SUM(AMOUNT) as total FROM cash_in");
-$d_in_all = mysqli_fetch_assoc($q_in_all);
-$total_masuk_sd = $d_in_all['total'] ?? 0;
-
-// 2. Total Pengeluaran Uang Kas s/d saat ini (Table: cash_out)
-$q_out_all = mysqli_query($koneksi, "SELECT SUM(AMOUNT) as total FROM cash_out");
-$d_out_all = mysqli_fetch_assoc($q_out_all);
-$total_keluar_sd = $d_out_all['total'] ?? 0;
-
-// Total Sisa Uang Kas s/d saat ini
-$sisa_kas_sd = $total_masuk_sd - $total_keluar_sd;
-
-// 3. Jumlah Penerimaan Uang Masuk di bulan ini
-$q_in_bulan = mysqli_query($koneksi, "SELECT SUM(AMOUNT) as total FROM cash_in WHERE DATE LIKE '$tahun_bulan_ini%'");
-$d_in_bulan = mysqli_fetch_assoc($q_in_bulan);
-$masuk_bulan_ini = $d_in_bulan['total'] ?? 0;
-
-// 4. Jumlah Pengeluaran Uang Keluar di bulan ini (Table: cash_out)
-$q_out_bulan = mysqli_query($koneksi, "SELECT SUM(AMOUNT) as total FROM cash_out WHERE DATE LIKE '$tahun_bulan_ini%'");
-$d_out_bulan = mysqli_fetch_assoc($q_out_bulan);
-$keluar_bulan_ini = $d_out_bulan['total'] ?? 0;
-
-// 5. Mutasi saldo bulan ini (Kas Masuk Bulan Ini - Kas Keluar Bulan Ini)
-$mutasi_bulan_ini = $masuk_bulan_ini - $keluar_bulan_ini;
-
-// Susun hasil data dalam bentuk JSON
-$respon = [
-    "periode_bulan" => $tahun_bulan_ini,
-    "kumulatif" => [
-        "total_masuk_sd" => (int)$total_masuk_sd,
-        "total_keluar_sd" => (int)$total_keluar_sd,
-        "sisa_kas_sd" => (int)$sisa_kas_sd
-    ],
-    "bulan_ini" => [
-        "masuk_bulan_ini" => (int)$masuk_bulan_ini,
-        "keluar_bulan_ini" => (int)$keluar_bulan_ini,
-        "mutasi_bulan_ini" => (int)$mutasi_bulan_ini
-    ]
-];
-
-header('Content-Type: application/json; charset=utf-8');
-echo json_encode($respon);
-?>
+mulaiBot();
