@@ -3,6 +3,17 @@ const { Boom } = require('@hapi/boom');
 const cron = require('node-cron');
 const axios = require('axios');
 const pino = require('pino');
+const http = require('http');
+
+// Membuat Web Server kecil agar Railway menganggap aplikasi aktif (mencegah SIGTERM)
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Bot WhatsApp Kas Warga Aktif!\n');
+});
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Server HTTP berjalan di port ${PORT}`);
+});
 
 async function mulaiBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_session');
@@ -38,7 +49,7 @@ async function mulaiBot() {
                                `• *Mutasi Saldo Bulan Ini:* ${formatRupiah(data.bulan_ini.mutasi_bulan_ini)}\n\n` +
                                `Terima kasih. 🙏`;
 
-            let nomorTujuan = '628xxxxxxxxxx@s.whatsapp.net'; // Ganti nomor tujuan Anda
+            let nomorTujuan = '628xxxxxxxxxx@s.whatsapp.net'; // Ganti nomor WhatsApp tujuan Anda
             await sock.sendMessage(nomorTujuan, { text: pesanLaporan });
             console.log('Laporan kas tanggal 20 berhasil dikirim!');
 
