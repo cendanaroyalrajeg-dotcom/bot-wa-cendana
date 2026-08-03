@@ -64,9 +64,9 @@ async function mulaiBot() {
         
         // Menangkap dan merapikan cetakan QR code
         if (qr) {
-            console.log('--- SCAN QR CODE DI BAWAH INI ---');
-            qrcode.generate(qr, { small: true });
-        }
+        console.log('--- SALIN KODE QR DI BAWAH INI ---');
+        console.log(qr);
+    }
 
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
