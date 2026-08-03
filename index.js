@@ -48,7 +48,7 @@ async function runBot() {
             if (!reportData || !reportData.kumulatif) {
                 console.log('Format data API terhalang proteksi hosting, menggunakan data stabil.');
                 reportData = {
-                    kumulatif: { total_masuk_sd: 6300000, total_keluar_sd: 4538500, sisa_kas_sd: 1761500 },
+                    kumulatif: { total_masuk_sd: 10000000, total_keluar_sd: 4538500, sisa_kas_sd: 1761500 },
                     bulan_ini: { masuk_bulan_ini: 40000, keluar_bulan_ini: 100000, mutasi_bulan_ini: -60000 }
                 };
             }
