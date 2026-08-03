@@ -4,7 +4,6 @@ const cron = require('node-cron');
 const axios = require('axios');
 const pino = require('pino');
 const http = require('http');
-const qrcode = require('qrcode-terminal');
 
 // 1. Jalankan Web Server di port Railway (agar tidak kena SIGTERM)
 const PORT = process.env.PORT || 8080;
@@ -21,11 +20,17 @@ async function mulaiBot() {
     
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: true, // Diaktifkan kembali untuk mencetak QR
+        printQRInTerminal: true,
         logger: pino({ level: 'silent' })
     });
 
     sock.ev.on('creds.update', saveCreds);
+
+    // Daftar Nomor Tujuan (Bisa ditambah lebih banyak di dalam kurung siku ini)
+    const daftarNomorTujuan = [
+        '628976398855@s.whatsapp.net',
+        '6281388323996@s.whatsapp.net'
+    ];
 
     // Penjadwal: Setiap Tanggal 20 Jam 08:00 Pagi
     cron.schedule('0 8 20 * *', async () => {
@@ -50,9 +55,11 @@ async function mulaiBot() {
                                `• *Mutasi Saldo Bulan Ini:* ${formatRupiah(data.bulan_ini.mutasi_bulan_ini)}\n\n` +
                                `Terima kasih. 🙏`;
 
-            let nomorTujuan = '628976398855@s.whatsapp.net';
-            await sock.sendMessage(nomorTujuan, { text: pesanLaporan });
-            console.log('Laporan kas tanggal 20 berhasil dikirim!');
+            // Kirim ke semua nomor dalam daftar secara berurutan
+            for (let nomor of daftarNomorTujuan) {
+                await sock.sendMessage(nomor, { text: pesanLaporan });
+                console.log(`Laporan kas tanggal 20 berhasil dikirim ke ${nomor}`);
+            }
 
         } catch (error) {
             console.log('Gagal mengirim laporan otomatis:', error);
@@ -62,11 +69,10 @@ async function mulaiBot() {
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         
-        // Menangkap dan merapikan cetakan QR code
         if (qr) {
-        console.log('--- SALIN KODE QR DI BAWAH INI ---');
-        console.log(qr);
-    }
+            console.log('--- SALIN KODE QR DI BAWAH INI ---');
+            console.log(qr);
+        }
 
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
@@ -76,6 +82,32 @@ async function mulaiBot() {
             }
         } else if (connection === 'open') {
             console.log('Bot WhatsApp Berhasil Terhubung dan Siap!');
+
+            // --- TES KIRIM MANUAL KE 2 NOMOR ---
+            setTimeout(async () => {
+                console.log('Mengirim pesan tes manual ke kedua nomor...');
+                try {
+                    let response = await axios.get('https://cendanaroyalrajeg.infinityfreeapp.com/api-ai.php');
+                    let data = response.data;
+
+                    let formatRupiah = (angka) => {
+                        return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(angka);
+                    };
+
+                    let pesanTes = `📊 *[TEST MANUAL] LAPORAN KAS WARGA* 📊\n\n` +
+                                   `• Total Sisa Uang Kas: ${formatRupiah(data.kumulatif.sisa_kas_sd)}\n` +
+                                   `• Masuk Bulan Ini: ${formatRupiah(data.bulan_ini.masuk_bulan_ini)}\n` +
+                                   `• Keluar Bulan Ini: ${formatRupiah(data.bulan_ini.keluar_bulan_ini)}\n\n` +
+                                   `Tes kirim ke 2 nomor berhasil! 🙏`;
+
+                    for (let nomor of daftarNomorTujuan) {
+                        await sock.sendMessage(nomor, { text: pesanTes });
+                        console.log(`Pesan tes berhasil dikirim ke ${nomor}`);
+                    }
+                } catch (err) {
+                    console.log('Gagal kirim tes manual:', err);
+                }
+            }, 5000);
         }
     });
 }
