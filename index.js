@@ -51,7 +51,7 @@ async function mulaiBot() {
                                `• *Mutasi Saldo Bulan Ini:* ${formatRupiah(data.bulan_ini.mutasi_bulan_ini)}\n\n` +
                                `Terima kasih. 🙏`;
 
-            let nomorTujuan = '628xxxxxxxxxx@s.whatsapp.net'; // Ganti dengan nomor WhatsApp Anda
+            let nomorTujuan = '628976398855@s.whatsapp.net'; // Ganti dengan nomor WhatsApp Anda
             await sock.sendMessage(nomorTujuan, { text: pesanLaporan });
             console.log('Laporan kas tanggal 20 berhasil dikirim!');
 
