@@ -29,6 +29,7 @@ async function mulaiBot() {
     // Daftar Nomor Tujuan (Pastikan menggunakan format @s.whatsapp.net)
     const daftarNomorTujuan = [
         '628976398855@s.whatsapp.net',
+        '628568639957@s.whatsapp.net',
         '6281388323996@s.whatsapp.net'
     ];
 
@@ -36,7 +37,8 @@ async function mulaiBot() {
     cron.schedule('0 8 20 * *', async () => {
         console.log('Menjalankan pengiriman laporan kas tanggal 20...');
         try {
-            let response = await axios.get('https://cendanaroyalrajeg.infinityfreeapp.com/api-ai.php');
+            // URL sudah diperbarui ke domain baru
+            let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php');
             let data = response.data;
 
             let formatRupiah = (angka) => {
@@ -82,10 +84,10 @@ async function mulaiBot() {
         } else if (connection === 'open') {
             console.log('Bot WhatsApp Berhasil Terhubung dan Siap!');
 
-            // --- EKsekusi Tes Kirim Manual Langsung Saat Terhubung ---
+            // --- Eksekusi Tes Kirim Manual Langsung Saat Terhubung ---
             try {
                 console.log('Mengirim pesan tes manual ke kedua nomor...');
-                let response = await axios.get('https://cendanaroyalrajeg.infinityfreeapp.com/api-ai.php');
+                let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php');
                 let data = response.data;
 
                 let formatRupiah = (angka) => {
