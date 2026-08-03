@@ -1,9 +1,10 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const cron = require('node-cron');
 const axios = require('axios');
 const pino = require('pino');
 const http = require('http');
+const qrcode = require('qrcode-terminal');
 
 // 1. Jalankan Web Server di port Railway (agar tidak kena SIGTERM)
 const PORT = process.env.PORT || 8080;
@@ -20,29 +21,11 @@ async function mulaiBot() {
     
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: false, // Kita matikan QR karena pakai pairing code
+        printQRInTerminal: true, // Diaktifkan kembali untuk mencetak QR
         logger: pino({ level: 'silent' })
     });
 
     sock.ev.on('creds.update', saveCreds);
-
-    // FITUR PAIRING CODE (KODE 8 DIGIT)
-    if (!sock.authState.creds.registered) {
-        // MASUKKAN NOMOR HP BOT/SENDER ANDA DI SINI (Contoh: '6281234567890', tanpa tanda + atau spasi)
-        const nomorBot = '6285333177898'; 
-
-        setTimeout(async () => {
-            try {
-                let code = await sock.requestPairingCode(nomorBot);
-                code = code?.match(/.{1,4}/g)?.join('-') || code;
-                console.log(`\n========================================`);
-                console.log(` KODE PAIRING WHATSAPP ANDA: ${code} `);
-                console.log(`========================================\n`);
-            } catch (err) {
-                console.log('Gagal meminta kode pairing:', err);
-            }
-        }, 3000);
-    }
 
     // Penjadwal: Setiap Tanggal 20 Jam 08:00 Pagi
     cron.schedule('0 8 20 * *', async () => {
@@ -77,8 +60,14 @@ async function mulaiBot() {
     });
 
     sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update;
+        const { connection, lastDisconnect, qr } = update;
         
+        // Menangkap dan merapikan cetakan QR code
+        if (qr) {
+            console.log('--- SCAN QR CODE DI BAWAH INI ---');
+            qrcode.generate(qr, { small: true });
+        }
+
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) {
