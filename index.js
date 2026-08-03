@@ -6,17 +6,18 @@ const pino = require('pino');
 const http = require('http');
 const qrcode = require('qrcode-terminal');
 
-// Membuat Web Server kecil agar Railway menganggap aplikasi aktif (mencegah SIGTERM)
-const server = http.createServer((req, res) => {
+// 1. Jalankan Web Server di port Railway (agar tidak kena SIGTERM)
+const PORT = process.env.PORT || 8080;
+http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Bot WhatsApp Kas Warga Aktif!\n');
-});
-const PORT = process.env.PORT || 8080;
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server HTTP berjalan di port ${PORT}`);
+}).listen(PORT, '0.0.0.0', () => {
+    console.log(`Server HTTP aktif di port ${PORT}`);
 });
 
+// 2. Fungsi Utama Bot WhatsApp
 async function mulaiBot() {
+    console.log('Memulai koneksi Bot WhatsApp...');
     const { state, saveCreds } = await useMultiFileAuthState('auth_session');
     
     const sock = makeWASocket({
@@ -50,7 +51,7 @@ async function mulaiBot() {
                                `• *Mutasi Saldo Bulan Ini:* ${formatRupiah(data.bulan_ini.mutasi_bulan_ini)}\n\n` +
                                `Terima kasih. 🙏`;
 
-            let nomorTujuan = '628976398855@s.whatsapp.net'; // Ganti nomor WhatsApp tujuan Anda
+            let nomorTujuan = '628xxxxxxxxxx@s.whatsapp.net'; // Ganti dengan nomor WhatsApp Anda
             await sock.sendMessage(nomorTujuan, { text: pesanLaporan });
             console.log('Laporan kas tanggal 20 berhasil dikirim!');
 
@@ -61,7 +62,7 @@ async function mulaiBot() {
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
-    
+        
         if (qr) {
             console.log('--- SCAN QR CODE DI BAWAH INI ---');
             qrcode.generate(qr, { small: true });
@@ -69,11 +70,15 @@ async function mulaiBot() {
 
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) mulaiBot();
+            if (shouldReconnect) {
+                console.log('Koneksi terputus, mencoba menghubungkan ulang...');
+                mulaiBot();
+            }
         } else if (connection === 'open') {
             console.log('Bot WhatsApp Berhasil Terhubung dan Siap!');
         }
     });
 }
 
+// 3. Jalankan bot secara langsung setelah file dibaca
 mulaiBot();
