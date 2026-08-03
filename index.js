@@ -26,18 +26,17 @@ async function mulaiBot() {
 
     sock.ev.on('creds.update', saveCreds);
 
-    // Daftar Nomor Tujuan (Pastikan menggunakan format @s.whatsapp.net)
+    // Daftar Nomor Tujuan
     const daftarNomorTujuan = [
-        '628976398855@s.whatsapp.net',
-        '628568639957@s.whatsapp.net',
-        '6281388323996@s.whatsapp.net'
+        '628976398855',
+        '628568639957',
+        '6281388323996'
     ];
 
     // Penjadwal: Setiap Tanggal 20 Jam 08:00 Pagi
     cron.schedule('0 8 20 * *', async () => {
         console.log('Menjalankan pengiriman laporan kas tanggal 20...');
         try {
-            // URL sudah diperbarui ke domain baru
             let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php');
             let data = response.data;
 
@@ -58,7 +57,8 @@ async function mulaiBot() {
                                `Terima kasih. 🙏`;
 
             for (let nomor of daftarNomorTujuan) {
-                await sock.sendMessage(nomor, { text: pesanLaporan });
+                let jid = nomor.includes('@s.whatsapp.net') ? nomor : `${nomor}@s.whatsapp.net`;
+                await sock.sendMessage(jid, { text: pesanLaporan });
                 console.log(`Laporan kas tanggal 20 berhasil dikirim ke ${nomor}`);
             }
 
@@ -67,7 +67,7 @@ async function mulaiBot() {
         }
     });
 
-   sock.ev.on('connection.update', async (update) => {
+    sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
         
         if (qr) {
@@ -87,7 +87,7 @@ async function mulaiBot() {
             // Beri jeda 5 detik agar socket benar-benar stabil sebelum mengirim pesan tes
             setTimeout(async () => {
                 try {
-                    console.log('Mengirim pesan tes manual ke kedua nomor...');
+                    console.log('Mengirim pesan tes manual ke semua nomor...');
                     let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php');
                     let data = response.data;
 
@@ -99,10 +99,11 @@ async function mulaiBot() {
                                    `• Total Sisa Uang Kas: ${formatRupiah(data.kumulatif.sisa_kas_sd)}\n` +
                                    `• Masuk Bulan Ini: ${formatRupiah(data.bulan_ini.masuk_bulan_ini)}\n` +
                                    `• Keluar Bulan Ini: ${formatRupiah(data.bulan_ini.keluar_bulan_ini)}\n\n` +
-                                   `Tes kirim ke 2 nomor berhasil! 🙏`;
+                                   `Tes kirim berhasil! 🙏`;
 
                     for (let nomor of daftarNomorTujuan) {
-                        await sock.sendMessage(nomor, { text: pesanTes });
+                        let jid = nomor.includes('@s.whatsapp.net') ? nomor : `${nomor}@s.whatsapp.net`;
+                        await sock.sendMessage(jid, { text: pesanTes });
                         console.log(`Pesan tes berhasil dikirim ke ${nomor}`);
                     }
                 } catch (err) {
