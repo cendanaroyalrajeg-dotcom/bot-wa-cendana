@@ -1,13 +1,14 @@
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const cron = require('node-cron');
+const axios = require('axios');
 const pino = require('pino');
 const http = require('http');
 
 const PORT = process.env.PORT || 8080;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot WhatsApp Kas Warga Aktif Versi 3!\n');
+    res.end('Bot WhatsApp Kas Warga Aktif!\n');
 }).listen(PORT, '0.0.0.0', () => {
     console.log(`Server HTTP aktif di port ${PORT}`);
 });
@@ -32,27 +33,28 @@ async function runBot() {
 
     async function sendReport(sockInstance, testMode = false) {
         try {
-            console.log('Menyusun pesan laporan...');
+            console.log('Mengambil data terbaru dari database InfinityFree...');
             
-            // Variabel lokal murni tanpa bergantung pada fungsi luar
-            const reportData = {
-                kumulatif: {
-                    total_masuk_sd: 6300000,
-                    total_keluar_sd: 4538500,
-                    sisa_kas_sd: 1761500
+            // Melakukan request ke API PHP dengan header penyamaran agar tidak diblokir hosting
+            let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php', {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
                 },
-                bulan_ini: {
-                    masuk_bulan_ini: 40000,
-                    keluar_bulan_ini: 100000,
-                    mutasi_bulan_ini: -60000
-                }
-            };
+                timeout: 10000 // Batas waktu tunggu 10 detik
+            });
+
+            let reportData = response.data;
+
+            if (!reportData || !reportData.kumulatif) {
+                console.log('Respons dari API bukan format JSON yang valid:', reportData);
+                return;
+            }
 
             const formatRupiah = (val) => {
                 return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val || 0);
             };
 
-            let title = testMode ? "📊 *[TEST MANUAL] LAPORAN KAS WARGA* 📊\n\n" : "📊 *LAPORAN KAS WARGA ROYAL RAJEG CENDANA* 📊\n🗓️ *Periode Per Tanggal 20*\n\n";
+            let title = testMode ? "📊 *[TEST SYSTEM] LAPORAN KAS WARGA* 📊\n\n" : "📊 *LAPORAN KAS WARGA ROYAL RAJEG CENDANA* 📊\n🗓️ *Periode Per Tanggal 20*\n\n";
 
             let content = title +
                           "📌 *KONDISI KEUANGAN S/D SAAT INI:*\n" +
@@ -68,10 +70,10 @@ async function runBot() {
             for (let num of targetNumbers) {
                 let recipientJid = num + '@s.whatsapp.net';
                 await sockInstance.sendMessage(recipientJid, { text: content });
-                console.log('Berhasil mengirim ke nomor: ' + num);
+                console.log('Berhasil mengirim laporan ke nomor: ' + num);
             }
         } catch (err) {
-            console.log('Gagal mengirim pesan:', err.message);
+            console.log('Gagal mengambil data dari database / mengirim pesan:', err.message);
         }
     }
 
@@ -98,9 +100,9 @@ async function runBot() {
             console.log('Koneksi WhatsApp Terbuka dan Siap!');
 
             setTimeout(async () => {
-                console.log('Mengeksekusi pengiriman pesan tes manual...');
+                console.log('Mengeksekusi pengambilan data dari database & kirim tes manual...');
                 await sendReport(client, true);
-            }, 4000);
+            }, 5000);
         }
     });
 }
