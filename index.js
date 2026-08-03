@@ -31,40 +31,44 @@ async function mulaiBot() {
         '6281388323996'
     ];
 
-    // Fungsi pembantu untuk mengambil dan memformat laporan
     async function kirimLaporanWhatsApp(sockClient, isTest = false) {
         try {
+            console.log('Mengambil data dari API...');
             let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php');
             let data = response.data;
+
+            if (!data || !data.kumulatif) {
+                console.log('Format data dari API tidak valid:', data);
+                return;
+            }
 
             let formatRupiah = (angka) => {
                 return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(angka || 0);
             };
 
-            let headerPesan = isTest ? `📊 *[TEST MANUAL] LAPORAN KAS WARGA* 📊\n\n` : `📊 *LAPORAN KAS WARGA ROYAL RAJEG CENDANA* 📊\n🗓️ *Periode Per Tanggal 20*\n\n`;
+            let headerPesan = isTest ? "📊 *[TEST MANUAL] LAPORAN KAS WARGA* 📊\n\n" : "📊 *LAPORAN KAS WARGA ROYAL RAJEG CENDANA* 📊\n🗓️ *Periode Per Tanggal 20*\n\n";
 
             let pesanLaporan = headerPesan +
-                               `📌 *KONDISI KEUANGAN S/D SAAT INI:*\n` +
-                               `• Total Penerimaan: ${formatRupiah(data.kumulatif?.total_masuk_sd)}\n` +
-                               `• Total Pengeluaran: ${formatRupiah(data.kumulatif?.total_keluar_sd)}\n` +
-                               `• *Total Sisa Uang Kas:* ${formatRupiah(data.kumulatif?.sisa_kas_sd)}\n\n` +
-                               `📈 *MUTASI BULAN INI:*\n` +
-                               `• Masuk Bulan Ini: ${formatRupiah(data.bulan_ini?.masuk_bulan_ini)}\n` +
-                               `• Keluar Bulan Ini: ${formatRupiah(data.bulan_ini?.keluar_bulan_ini)}\n` +
-                               `• *Mutasi Saldo Bulan Ini:* ${formatRupiah(data.bulan_ini?.mutasi_bulan_ini)}\n\n` +
-                               `Terima kasih. 🙏`;
+                               "📌 *KONDISI KEUANGAN S/D SAAT INI:*\n" +
+                               "• Total Penerimaan: " + formatRupiah(data.kumulatif.total_masuk_sd) + "\n" +
+                               "• Total Pengeluaran: " + formatRupiah(data.kumulatif.total_keluar_sd) + "\n" +
+                               "• *Total Sisa Uang Kas:* " + formatRupiah(data.kumulatif.sisa_kas_sd) + "\n\n" +
+                               "📈 *MUTASI BULAN INI:*\n" +
+                               "• Masuk Bulan Ini: " + formatRupiah(data.bulan_ini.masuk_bulan_ini) + "\n" +
+                               "• Keluar Bulan Ini: " + formatRupiah(data.bulan_ini.keluar_bulan_ini) + "\n" +
+                               "• *Mutasi Saldo Bulan Ini:* " + formatRupiah(data.bulan_ini.mutasi_bulan_ini) + "\n\n" +
+                               "Terima kasih. 🙏";
 
             for (let nomor of daftarNomorTujuan) {
-                let jid = nomor.includes('@s.whatsapp.net') ? nomor : `${nomor}@s.whatsapp.net`;
+                let jid = nomor + '@s.whatsapp.net';
                 await sockClient.sendMessage(jid, { text: pesanLaporan });
-                console.log(`Pesan berhasil dikirim ke ${nomor}`);
+                console.log('Pesan berhasil dikirim ke ' + nomor);
             }
         } catch (error) {
             console.log('Gagal mengambil/mengirim data laporan:', error.message);
         }
     }
 
-    // Penjadwal: Setiap Tanggal 20 Jam 08:00 Pagi
     cron.schedule('0 8 20 * *', async () => {
         console.log('Menjalankan pengiriman laporan kas tanggal 20...');
         await kirimLaporanWhatsApp(sock, false);
@@ -87,9 +91,8 @@ async function mulaiBot() {
         } else if (connection === 'open') {
             console.log('Bot WhatsApp Berhasil Terhubung dan Siap!');
 
-            // Jeda 5 detik sebelum tes kirim manual
             setTimeout(async () => {
-                console.log('Mengirim pesan tes manual ke semua nomor...');
+                console.log('Memulai tes kirim manual ke semua nomor...');
                 await kirimLaporanWhatsApp(sock, true);
             }, 5000);
         }
