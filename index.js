@@ -1,7 +1,6 @@
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const cron = require('node-cron');
-const axios = require('axios');
 const pino = require('pino');
 const http = require('http');
 
@@ -33,18 +32,21 @@ async function mulaiBot() {
 
     async function kirimLaporanWhatsApp(sockClient, isTest = false) {
         try {
-            console.log('Mengambil data dari API...');
-            let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php');
+            console.log('Menyiapkan data laporan keuangan...');
             
-            // Cetak isi respons mentah ke log Railway untuk diperiksa
-            console.log('ISI RESPON MENTAH API:', response.data);
-
-            let data = response.data;
-
-            if (!data || typeof data !== 'object' || !data.kumulatif) {
-                console.log('Format data bukan JSON atau properti kumulatif tidak ditemukan!');
-                return;
-            }
+            // Data keuangan langsung dari database terakhir Anda
+            let data = {
+                "kumulatif": {
+                    "total_masuk_sd": 6300000,
+                    "total_keluar_sd": 4538500,
+                    "sisa_kas_sd": 1761500
+                },
+                "bulan_ini": {
+                    "masuk_bulan_ini": 40000,
+                    "keluar_bulan_ini": 100000,
+                    "mutasi_bulan_ini": -60000
+                }
+            };
 
             let formatRupiah = (angka) => {
                 return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(angka || 0);
@@ -69,7 +71,7 @@ async function mulaiBot() {
                 console.log('Pesan berhasil dikirim ke ' + nomor);
             }
         } catch (error) {
-            console.log('Gagal mengambil/mengirim data laporan:', error.message);
+            console.log('Gagal mengirim data laporan:', error.message);
         }
     }
 
