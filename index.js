@@ -57,7 +57,7 @@ async function runBot() {
                 return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val || 0);
             };
 
-            let title = testMode ? "📊 *[TEST MANUAL] LAPORAN KAS CENDANA* 📊\n\n" : "📊 *LAPORAN HARIAN KAS WARGA CENDANA* 📊\n🗓️ *Update Setiap Pukul 07:00 WIB*\n\n";
+            let title = testMode ? "📊 *LAPORAN KAS CENDANA* 📊\n\n" : "📊 *LAPORAN HARIAN KAS WARGA CENDANA* 📊\n🗓️ *Update Setiap Pukul 07:00 WIB*\n\n";
 
             let content = title +
                           "📌 *MUTASI KEUANGAN S/D SAAT INI:*\n" +
