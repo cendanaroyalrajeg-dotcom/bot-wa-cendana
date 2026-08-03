@@ -6,7 +6,6 @@ const pino = require('pino');
 const http = require('http');
 const qrcode = require('qrcode-terminal');
 
-// 1. Jalankan Web Server di port Railway (agar tidak kena SIGTERM)
 const PORT = process.env.PORT || 8080;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -15,7 +14,6 @@ http.createServer((req, res) => {
     console.log(`Server HTTP aktif di port ${PORT}`);
 });
 
-// 2. Fungsi Utama Bot WhatsApp
 async function mulaiBot() {
     console.log('Memulai koneksi Bot WhatsApp...');
     const { state, saveCreds } = await useMultiFileAuthState('auth_session');
@@ -28,7 +26,6 @@ async function mulaiBot() {
 
     sock.ev.on('creds.update', saveCreds);
 
-    // Penjadwal: Setiap Tanggal 20 Jam 08:00 Pagi
     cron.schedule('0 8 20 * *', async () => {
         console.log('Menjalankan pengiriman laporan kas tanggal 20...');
         try {
@@ -51,7 +48,7 @@ async function mulaiBot() {
                                `• *Mutasi Saldo Bulan Ini:* ${formatRupiah(data.bulan_ini.mutasi_bulan_ini)}\n\n` +
                                `Terima kasih. 🙏`;
 
-            let nomorTujuan = '628976398855@s.whatsapp.net'; // Ganti dengan nomor WhatsApp Anda
+            let nomorTujuan = '628976398855@s.whatsapp.net';
             await sock.sendMessage(nomorTujuan, { text: pesanLaporan });
             console.log('Laporan kas tanggal 20 berhasil dikirim!');
 
@@ -64,8 +61,8 @@ async function mulaiBot() {
         const { connection, lastDisconnect, qr } = update;
         
         if (qr) {
-        console.log('--- SCAN QR CODE DI BAWAH INI ---');
-        qrcode.generate(qr);
+            console.log('--- SCAN QR CODE DI BAWAH INI ---');
+            qrcode.generate(qr, { small: true });
         }
 
         if (connection === 'close') {
@@ -80,5 +77,4 @@ async function mulaiBot() {
     });
 }
 
-// 3. Jalankan bot secara langsung setelah file dibaca
 mulaiBot();
