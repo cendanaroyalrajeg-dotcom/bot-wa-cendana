@@ -64,8 +64,8 @@ async function mulaiBot() {
         const { connection, lastDisconnect, qr } = update;
         
         if (qr) {
-            console.log('--- SCAN QR CODE DI BAWAH INI ---');
-            qrcode.generate(qr, { small: true });
+        console.log('--- SCAN QR CODE DI BAWAH INI ---');
+        qrcode.generate(qr);
         }
 
         if (connection === 'close') {
