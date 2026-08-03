@@ -8,7 +8,7 @@ const http = require('http');
 const PORT = process.env.PORT || 8080;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot WhatsApp Kas Warga Aktif!\n');
+    res.end('Bot WhatsApp Kas Warga Aktif Versi 4!\n');
 }).listen(PORT, '0.0.0.0', () => {
     console.log(`Server HTTP aktif di port ${PORT}`);
 });
@@ -31,22 +31,22 @@ async function runBot() {
         '6281388323996'
     ];
 
+    // Fungsi utama pengambil data dari InfinityFree & pengirim laporan
     async function sendReport(sockInstance, testMode = false) {
         try {
             console.log('Mengambil data terbaru dari database InfinityFree...');
             
-            // Melakukan request ke API PHP dengan header penyamaran agar tidak diblokir hosting
             let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php', {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                 },
-                timeout: 10000 // Batas waktu tunggu 10 detik
+                timeout: 10000
             });
 
             let reportData = response.data;
 
             if (!reportData || !reportData.kumulatif) {
-                console.log('Respons dari API bukan format JSON yang valid:', reportData);
+                console.log('Format data API tidak valid:', reportData);
                 return;
             }
 
@@ -54,7 +54,7 @@ async function runBot() {
                 return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val || 0);
             };
 
-            let title = testMode ? "📊 *[TEST SYSTEM] LAPORAN KAS WARGA* 📊\n\n" : "📊 *LAPORAN KAS WARGA ROYAL RAJEG CENDANA* 📊\n🗓️ *Periode Per Tanggal 20*\n\n";
+            let title = testMode ? "📊 *[TEST MANUAL] LAPORAN KAS WARGA* 📊\n\n" : "📊 *LAPORAN KAS WARGA ROYAL RAJEG CENDANA* 📊\n🗓️ *Periode Per Tanggal 20*\n\n";
 
             let content = title +
                           "📌 *KONDISI KEUANGAN S/D SAAT INI:*\n" +
@@ -73,13 +73,53 @@ async function runBot() {
                 console.log('Berhasil mengirim laporan ke nomor: ' + num);
             }
         } catch (err) {
-            console.log('Gagal mengambil data dari database / mengirim pesan:', err.message);
+            console.log('Gagal mengambil/mengirim laporan:', err.message);
         }
     }
 
+    // Cron job otomatis setiap tanggal 20 jam 08:00 Pagi
     cron.schedule('0 8 20 * *', async () => {
         console.log('Menjalankan cron job tanggal 20...');
         await sendReport(client, false);
+    });
+
+    // --- FITUR BARU: RESPON CHAT REAL-TIME DARI DATABASE ---
+    client.ev.on('messages.upsert', async (m) => {
+        let pesanMasuk = m.messages[0];
+        if (!pesanMasuk.message || pesanMasuk.key.fromMe) return;
+
+        let senderJid = pesanMasuk.key.remoteJid;
+        let textPesan = pesanMasuk.message.conversation || pesanMasuk.message.extendedTextMessage?.text;
+
+        if (!textPesan) return;
+        let keyword = textPesan.toLowerCase().trim();
+
+        // Jika warga chat dengan kata kunci "sisa kas", "saldo", atau "laporan"
+        if (keyword === 'sisa kas' || keyword === 'saldo' || keyword === 'laporan') {
+            try {
+                console.log(`Warga (${senderJid}) meminta info real-time: ${keyword}`);
+                
+                let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php', {
+                    headers: { 'User-Agent': 'Mozilla/5.0' },
+                    timeout: 8000
+                });
+                let data = response.data;
+
+                const formatRupiah = (val) => {
+                    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val || 0);
+                };
+
+                let replyText = `🤖 *INFORMASI KAS WARGA (REAL-TIME)*\n\n` +
+                                `• Total Sisa Uang Kas: *${formatRupiah(data.kumulatif.sisa_kas_sd)}*\n` +
+                                `• Masuk Bulan Ini: ${formatRupiah(data.bulan_ini.masuk_bulan_ini)}\n` +
+                                `• Keluar Bulan Ini: ${formatRupiah(data.bulan_ini.keluar_bulan_ini)}\n\n` +
+                                `Data diambil langsung dari database. 🙏`;
+
+                await client.sendMessage(senderJid, { text: replyText });
+            } catch (err) {
+                await client.sendMessage(senderJid, { text: "Maaf, saat ini gagal mengambil data dari database." });
+            }
+        }
     });
 
     client.ev.on('connection.update', async (update) => {
@@ -100,9 +140,9 @@ async function runBot() {
             console.log('Koneksi WhatsApp Terbuka dan Siap!');
 
             setTimeout(async () => {
-                console.log('Mengeksekusi pengambilan data dari database & kirim tes manual...');
+                console.log('Mengeksekusi pengiriman pesan tes manual dari database...');
                 await sendReport(client, true);
-            }, 5000);
+            }, 4000);
         }
     });
 }
