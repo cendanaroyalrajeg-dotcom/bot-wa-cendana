@@ -10,7 +10,7 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Bot WhatsApp Kas Warga Aktif!\n');
 });
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`Server HTTP berjalan di port ${PORT}`);
 });
