@@ -54,10 +54,10 @@ async function runBot() {
                 return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val || 0);
             };
 
-            let title = testMode ? "📊 *[TEST MANUAL] LAPORAN KAS WARGA* 📊\n\n" : "📊 *LAPORAN KAS WARGA ROYAL RAJEG CENDANA* 📊\n🗓️ *Periode Per Tanggal 20*\n\n";
+            let title = testMode ? "📊 *LAPORAN KAS CENDANA* 📊\n\n" : "📊 *LAPORAN KAS WARGA ROYAL RAJEG CENDANA* 📊\n🗓️ *Periode Per Tanggal 20*\n\n";
 
             let content = title +
-                          "📌 *KONDISI KEUANGAN S/D SAAT INI:*\n" +
+                          "📌 *MUTASI KEUANGAN S/D SAAT INI:*\n" +
                           "• Total Penerimaan: " + formatRupiah(reportData.kumulatif.total_masuk_sd) + "\n" +
                           "• Total Pengeluaran: " + formatRupiah(reportData.kumulatif.total_keluar_sd) + "\n" +
                           "• *Total Sisa Uang Kas:* " + formatRupiah(reportData.kumulatif.sisa_kas_sd) + "\n\n" +
@@ -65,7 +65,8 @@ async function runBot() {
                           "• Masuk Bulan Ini: " + formatRupiah(reportData.bulan_ini.masuk_bulan_ini) + "\n" +
                           "• Keluar Bulan Ini: " + formatRupiah(reportData.bulan_ini.keluar_bulan_ini) + "\n" +
                           "• *Mutasi Saldo Bulan Ini:* " + formatRupiah(reportData.bulan_ini.mutasi_bulan_ini) + "\n\n" +
-                          "Terima kasih. 🙏";
+                          "Terima kasih. 🙏"
+                         "🔗 untuk melihat detail bisa klik link ini :\n' + 'https://cendanafamilybackup.rf.gd;
 
             for (let num of targetNumbers) {
                 let recipientJid = num + '@s.whatsapp.net';
