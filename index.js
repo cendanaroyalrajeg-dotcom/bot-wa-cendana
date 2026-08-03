@@ -83,22 +83,36 @@ async function runBot() {
         await sendReport(client, false);
     });
 
-    // --- FITUR BARU: RESPON CHAT REAL-TIME DARI DATABASE ---
-    client.ev.on('messages.upsert', async (m) => {
-        let pesanMasuk = m.messages[0];
-        if (!pesanMasuk.message || pesanMasuk.key.fromMe) return;
+    // --- PERBAIKAN FITUR RESPON CHAT REAL-TIME ---
+    client.ev.on('messages.upsert', async (chatUpdate) => {
+        try {
+            let mek = chatUpdate.messages[0];
+            if (!mek.message) return;
+            if (mek.key && mek.key.fromMe) return; // Abaikan pesan dari bot sendiri
 
-        let senderJid = pesanMasuk.key.remoteJid;
-        let textPesan = pesanMasuk.message.conversation || pesanMasuk.message.extendedTextMessage?.text;
+            let senderJid = mek.key.remoteJid;
+            
+            // Ambil teks dari berbagai jenis format pesan masuk di Baileys
+            let messageType = Object.keys(mek.message)[0];
+            let textPesan = "";
 
-        if (!textPesan) return;
-        let keyword = textPesan.toLowerCase().trim();
+            if (messageType === 'conversation') {
+                textPesan = mek.message.conversation;
+            } else if (messageType === 'extendedTextMessage') {
+                textPesan = mek.message.extendedTextMessage.text;
+            } else if (messageType === 'imageMessage' && mek.message.imageMessage.caption) {
+                textPesan = mek.message.imageMessage.caption;
+            }
 
-        // Jika warga chat dengan kata kunci "sisa kas", "saldo", atau "laporan"
-        if (keyword === 'sisa kas' || keyword === 'saldo' || keyword === 'laporan') {
-            try {
-                console.log(`Warga (${senderJid}) meminta info real-time: ${keyword}`);
-                
+            if (!textPesan) return;
+            let keyword = textPesan.toLowerCase().trim();
+
+            console.log(`Pesan masuk dari ${senderJid}: "${textPesan}"`);
+
+            // Deteksi kata kunci
+            if (keyword === 'sisa kas' || keyword === 'saldo' || keyword === 'laporan' || keyword === 'info') {
+                console.log(`Keyword cocok! Mengambil data real-time untuk ${senderJid}...`);
+
                 let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php', {
                     headers: { 'User-Agent': 'Mozilla/5.0' },
                     timeout: 8000
@@ -113,12 +127,13 @@ async function runBot() {
                                 `• Total Sisa Uang Kas: *${formatRupiah(data.kumulatif.sisa_kas_sd)}*\n` +
                                 `• Masuk Bulan Ini: ${formatRupiah(data.bulan_ini.masuk_bulan_ini)}\n` +
                                 `• Keluar Bulan Ini: ${formatRupiah(data.bulan_ini.keluar_bulan_ini)}\n\n` +
-                                `Data diambil langsung dari database. 🙏`;
+                                `Data ditarik langsung dari database. 🙏`;
 
                 await client.sendMessage(senderJid, { text: replyText });
-            } catch (err) {
-                await client.sendMessage(senderJid, { text: "Maaf, saat ini gagal mengambil data dari database." });
+                console.log(`Balasan berhasil dikirim ke ${senderJid}`);
             }
+        } catch (err) {
+            console.log('Gagal memproses pesan masuk:', err.message);
         }
     });
 
