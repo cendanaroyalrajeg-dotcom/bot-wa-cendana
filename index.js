@@ -35,10 +35,14 @@ async function mulaiBot() {
         try {
             console.log('Mengambil data dari API...');
             let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php');
+            
+            // Cetak isi respons mentah ke log Railway untuk diperiksa
+            console.log('ISI RESPON MENTAH API:', response.data);
+
             let data = response.data;
 
-            if (!data || !data.kumulatif) {
-                console.log('Format data dari API tidak valid:', data);
+            if (!data || typeof data !== 'object' || !data.kumulatif) {
+                console.log('Format data bukan JSON atau properti kumulatif tidak ditemukan!');
                 return;
             }
 
