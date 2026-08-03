@@ -4,6 +4,7 @@ const cron = require('node-cron');
 const axios = require('axios');
 const pino = require('pino');
 const http = require('http');
+const qrcode = require('qrcode-terminal');
 
 // Membuat Web Server kecil agar Railway menganggap aplikasi aktif (mencegah SIGTERM)
 const server = http.createServer((req, res) => {
@@ -49,7 +50,7 @@ async function mulaiBot() {
                                `• *Mutasi Saldo Bulan Ini:* ${formatRupiah(data.bulan_ini.mutasi_bulan_ini)}\n\n` +
                                `Terima kasih. 🙏`;
 
-            let nomorTujuan = '628xxxxxxxxxx@s.whatsapp.net'; // Ganti nomor WhatsApp tujuan Anda
+            let nomorTujuan = '628976398855@s.whatsapp.net'; // Ganti nomor WhatsApp tujuan Anda
             await sock.sendMessage(nomorTujuan, { text: pesanLaporan });
             console.log('Laporan kas tanggal 20 berhasil dikirim!');
 
@@ -59,7 +60,13 @@ async function mulaiBot() {
     });
 
     sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update;
+        const { connection, lastDisconnect, qr } = update;
+    
+        if (qr) {
+            console.log('--- SCAN QR CODE DI BAWAH INI ---');
+            qrcode.generate(qr, { small: true });
+        }
+
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) mulaiBot();
