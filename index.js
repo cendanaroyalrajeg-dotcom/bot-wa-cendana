@@ -8,7 +8,7 @@ const http = require('http');
 const PORT = process.env.PORT || 8080;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot WhatsApp Kas Warga Aktif Versi 5!\n');
+    res.end('Bot WhatsApp Kas Warga Aktif Versi 6!\n');
 }).listen(PORT, '0.0.0.0', () => {
     console.log(`Server HTTP aktif di port ${PORT}`);
 });
@@ -31,7 +31,7 @@ async function runBot() {
         '6281388323996'
     ];
 
-    // Fungsi jeda waktu (delay) agar pesan tidak dianggap spam oleh WhatsApp
+    // Fungsi jeda waktu (delay)
     const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
     // Fungsi utama pengambil data dari InfinityFree & pengirim laporan
@@ -74,19 +74,23 @@ async function runBot() {
                           "🔗 Untuk melihat detail bisa klik link ini:\nhttps://cendanafamilybackup.rf.gd\n\n" +
                           "Terima kasih. 🙏";
 
-            // Mengirim ke setiap nomor dengan jeda waktu 2 detik (2000ms) agar aman dari blokir
+            // Mengirim ke setiap nomor satu per satu dengan aman menggunakan try-catch terpisah
             for (let num of targetNumbers) {
-                let recipientJid = num + '@s.whatsapp.net';
-                await sockInstance.sendMessage(recipientJid, { text: content });
-                console.log('Berhasil mengirim laporan ke nomor: ' + num);
-                await delay(2000); // Jeda 2 detik antar nomor
+                try {
+                    let recipientJid = num + '@s.whatsapp.net';
+                    await sockInstance.sendMessage(recipientJid, { text: content });
+                    console.log('Berhasil mengirim laporan ke nomor: ' + num);
+                } catch (errNum) {
+                    console.log(`Gagal mengirim ke nomor ${num}:`, errNum.message);
+                }
+                await delay(4000); // Jeda 4 detik antar nomor agar tidak di-block WhatsApp
             }
         } catch (err) {
             console.log('Gagal mengambil/mengirim laporan:', err.message);
         }
     }
 
-    // Cron job diubah ke jam 21:18 WIB ('18 21 * * *')
+    // Cron job diset setiap jam 21:18 WIB ('18 21 * * *')
     cron.schedule('18 21 * * *', async () => {
         console.log('Menjalankan cron job harian jam 21:18 WIB...');
         await sendReport(client, false);
