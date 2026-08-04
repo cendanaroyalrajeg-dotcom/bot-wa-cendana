@@ -60,7 +60,7 @@ async function runBot() {
                 return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val || 0);
             };
 
-            let title = testMode ? "📊 *[TEST MANUAL] LAPORAN KAS CENDANA* 📊\n\n" : "📊 *LAPORAN HARIAN KAS WARGA CENDANA* 📊\n🗓️ *Update Setiap Pukul 07:00 WIB*\n\n";
+            let title = testMode ? "📊 *[TEST MANUAL] LAPORAN KAS CENDANA* 📊\n\n" : "📊 *LAPORAN HARIAN KAS WARGA CENDANA* 📊\n🗓️ *Update Pukul 21:18 WIB*\n\n";
 
             let content = title +
                           "📌 *MUTASI KEUANGAN S/D SAAT INI:*\n" +
@@ -74,7 +74,7 @@ async function runBot() {
                           "🔗 Untuk melihat detail bisa klik link ini:\nhttps://cendanafamilybackup.rf.gd\n\n" +
                           "Terima kasih. 🙏";
 
-            // Mengirim ke setiap nomor dengan jeda waktu 2 detik (2000ms) agar tidak terblokir
+            // Mengirim ke setiap nomor dengan jeda waktu 2 detik (2000ms) agar aman dari blokir
             for (let num of targetNumbers) {
                 let recipientJid = num + '@s.whatsapp.net';
                 await sockInstance.sendMessage(recipientJid, { text: content });
@@ -86,9 +86,9 @@ async function runBot() {
         }
     }
 
-    // Cron job harian jam 07:00 pagi dengan zona waktu Asia/Jakarta (WIB)
-    cron.schedule('0 7 * * *', async () => {
-        console.log('Menjalankan cron job harian jam 7 pagi WIB...');
+    // Cron job diubah ke jam 21:18 WIB ('18 21 * * *')
+    cron.schedule('18 21 * * *', async () => {
+        console.log('Menjalankan cron job harian jam 21:18 WIB...');
         await sendReport(client, false);
     }, {
         timezone: "Asia/Jakarta"
@@ -162,8 +162,6 @@ async function runBot() {
             }
         } else if (connection === 'open') {
             console.log('Koneksi WhatsApp Terbuka dan Siap!');
-            // Sengaja tes manual dihapus dari sini agar bot tidak mengirim pesan berulang-ulang 
-            // setiap kali koneksi internet/server melakukan reconnect di tengah malam!
         }
     });
 }
