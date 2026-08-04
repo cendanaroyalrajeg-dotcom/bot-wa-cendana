@@ -90,8 +90,8 @@ async function runBot() {
         }
     }
 
-    // Cron job diset setiap jam 21:18 WIB ('18 21 * * *')
-    cron.schedule('18 21 * * *', async () => {
+    // Cron job diset setiap jam 21:30 WIB ('30 21 * * *')
+    cron.schedule('30 21 * * *', async () => {
         console.log('Menjalankan cron job harian jam 21:18 WIB...');
         await sendReport(client, false);
     }, {
