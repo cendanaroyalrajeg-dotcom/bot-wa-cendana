@@ -60,7 +60,7 @@ async function runBot() {
                 return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val || 0);
             };
 
-            let title = testMode ? "📊 *[TEST MANUAL] LAPORAN KAS CENDANA* 📊\n\n" : "📊 *LAPORAN HARIAN KAS WARGA CENDANA* 📊\n🗓️ *Update Pukul 21:18 WIB*\n\n";
+            let title = testMode ? "📊 *[TEST MANUAL] LAPORAN KAS CENDANA* 📊\n\n" : "📊 *LAPORAN HARIAN KAS WARGA CENDANA* 📊\n🗓️ *Update Pukul 21:30 WIB*\n\n";
 
             let content = title +
                           "📌 *MUTASI KEUANGAN S/D SAAT INI:*\n" +
@@ -92,7 +92,7 @@ async function runBot() {
 
     // Cron job diset setiap jam 21:30 WIB ('30 21 * * *')
     cron.schedule('30 21 * * *', async () => {
-        console.log('Menjalankan cron job harian jam 21:18 WIB...');
+        console.log('Menjalankan cron job harian jam 21:30 WIB...');
         await sendReport(client, false);
     }, {
         timezone: "Asia/Jakarta"
