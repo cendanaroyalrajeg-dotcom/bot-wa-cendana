@@ -8,7 +8,7 @@ const http = require('http');
 const PORT = process.env.PORT || 8080;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot WhatsApp Kas Warga Aktif Versi 4!\n');
+    res.end('Bot WhatsApp Kas Warga Aktif Versi 5!\n');
 }).listen(PORT, '0.0.0.0', () => {
     console.log(`Server HTTP aktif di port ${PORT}`);
 });
@@ -30,6 +30,9 @@ async function runBot() {
         '628568639957',
         '6281388323996'
     ];
+
+    // Fungsi jeda waktu (delay) agar pesan tidak dianggap spam oleh WhatsApp
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
     // Fungsi utama pengambil data dari InfinityFree & pengirim laporan
     async function sendReport(sockInstance, testMode = false) {
@@ -57,7 +60,7 @@ async function runBot() {
                 return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val || 0);
             };
 
-            let title = testMode ? "📊 *LAPORAN KAS CENDANA* 📊\n\n" : "📊 *LAPORAN HARIAN KAS WARGA CENDANA* 📊\n🗓️ *Update Setiap Pukul 07:00 WIB*\n\n";
+            let title = testMode ? "📊 *[TEST MANUAL] LAPORAN KAS CENDANA* 📊\n\n" : "📊 *LAPORAN HARIAN KAS WARGA CENDANA* 📊\n🗓️ *Update Setiap Pukul 07:00 WIB*\n\n";
 
             let content = title +
                           "📌 *MUTASI KEUANGAN S/D SAAT INI:*\n" +
@@ -71,20 +74,24 @@ async function runBot() {
                           "🔗 Untuk melihat detail bisa klik link ini:\nhttps://cendanafamilybackup.rf.gd\n\n" +
                           "Terima kasih. 🙏";
 
+            // Mengirim ke setiap nomor dengan jeda waktu 2 detik (2000ms) agar tidak terblokir
             for (let num of targetNumbers) {
                 let recipientJid = num + '@s.whatsapp.net';
                 await sockInstance.sendMessage(recipientJid, { text: content });
                 console.log('Berhasil mengirim laporan ke nomor: ' + num);
+                await delay(2000); // Jeda 2 detik antar nomor
             }
         } catch (err) {
             console.log('Gagal mengambil/mengirim laporan:', err.message);
         }
     }
 
-    // Cron job diset setiap hari jam 07:00 Pagi (`0 7 * * *`)
+    // Cron job harian jam 07:00 pagi dengan zona waktu Asia/Jakarta (WIB)
     cron.schedule('0 7 * * *', async () => {
-        console.log('Menjalankan cron job harian jam 7 pagi...');
+        console.log('Menjalankan cron job harian jam 7 pagi WIB...');
         await sendReport(client, false);
+    }, {
+        timezone: "Asia/Jakarta"
     });
 
     // --- FITUR RESPON CHAT REAL-TIME ---
@@ -155,11 +162,8 @@ async function runBot() {
             }
         } else if (connection === 'open') {
             console.log('Koneksi WhatsApp Terbuka dan Siap!');
-
-            setTimeout(async () => {
-                console.log('Mengeksekusi pengiriman pesan tes manual...');
-                await sendReport(client, true);
-            }, 4000);
+            // Sengaja tes manual dihapus dari sini agar bot tidak mengirim pesan berulang-ulang 
+            // setiap kali koneksi internet/server melakukan reconnect di tengah malam!
         }
     });
 }
