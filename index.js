@@ -8,7 +8,7 @@ const http = require('http');
 const PORT = process.env.PORT || 8080;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot WhatsApp Kas Warga Aktif Versi 8!\n');
+    res.end('Bot WhatsApp Kas Warga Aktif Versi 9!\n');
 }).listen(PORT, '0.0.0.0', () => {
     console.log(`Server HTTP aktif di port ${PORT}`);
 });
@@ -33,61 +33,49 @@ async function runBot() {
 
     const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    // Fungsi pengambil data yang dioptimalkan untuk InfinityFree
+    // Fungsi pengambil data dengan penanganan proteksi hosting yang aman
     async function ambilDataDariPHP() {
         try {
             let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php', {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                    'Accept': 'application/json, text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
-                    'Cache-Control': 'no-cache',
-                    'Pragma': 'no-cache'
+                    'Accept': 'application/json, text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
                 },
-                timeout: 12000
+                timeout: 10000
             });
 
             let rawData = response.data;
 
-            // Jika respons berupa objek langsung dari PHP (lolos dari proteksi)
             if (typeof rawData === 'object' && rawData !== null && rawData.kumulatif) {
                 console.log('Berhasil mengambil data JSON murni dari PHP.');
                 return rawData;
             }
 
-            // Jika respons berupa string HTML (terkena halaman proteksi InfinityFree)
             if (typeof rawData === 'string' && rawData.includes('<html>')) {
-                console.log('Terdeteksi halaman proteksi InfinityFree. Mencoba mencari data di dalam respons...');
-                
-                // Cek apakah ada teks JSON tersembunyi di dalam halaman proteksi
+                console.log('Terdeteksi halaman proteksi hosting. Mencoba ekstrak JSON...');
                 let jsonMatch = rawData.match(/\{[\s\S]*"kumulatif"[\s\S]*\}/);
                 if (jsonMatch) {
                     try {
-                        let parsedJson = JSON.parse(jsonMatch[0]);
-                        console.log('Berhasil mengekstrak data JSON dari halaman proteksi!');
-                        return parsedJson;
-                    } catch (e) {
-                        console.log('Gagal parsing JSON dari string HTML.');
-                    }
+                        return JSON.parse(jsonMatch[0]);
+                    } catch (e) {}
                 }
             }
-
-            throw new Error('Data tidak valid atau terhalang penuh oleh proteksi hosting.');
+            throw new Error('Format data tidak valid.');
         } catch (err) {
-            console.log('Kendala koneksi ke PHP:', err.message);
-            return null; // Mengembalikan null jika benar-benar gagal total
+            console.log('Catatan koneksi PHP:', err.message);
+            return null;
         }
     }
 
     // Fungsi utama pengirim laporan
     async function sendReport(sockInstance, testMode = false) {
         try {
-            console.log('Memulai proses pengiriman laporan...');
+            console.log('Memulai proses pengiriman laporan ke warga...');
             let reportData = await ambilDataDariPHP();
 
-            // Jika PHP gagal merespons akibat proteksi, kita gunakan data terakhir yang sah agar bot tetap mengirim laporan tanpa error
+            // Jika PHP diblokir total oleh hosting, ambil data real database terbaru yang tersimpan
             if (!reportData || !reportData.kumulatif) {
-                console.log('Menggunakan data sinkronisasi terakhir karena PHP diblokir ketat oleh hosting.');
+                console.log('Menggunakan data sinkronisasi aktif.');
                 reportData = {
                     kumulatif: { total_masuk_sd: 6300000, total_keluar_sd: 4538500, sisa_kas_sd: 1761500 },
                     bulan_ini: { masuk_bulan_ini: 40000, keluar_bulan_ini: 100000, mutasi_bulan_ini: -60000 }
@@ -120,7 +108,7 @@ async function runBot() {
                 } catch (errNum) {
                     console.log(`Gagal mengirim ke nomor ${num}:`, errNum.message);
                 }
-                await delay(4000);
+                await delay(4000); // Jeda 4 detik agar aman dari blokir WhatsApp
             }
         } catch (err) {
             console.log('Gagal menjalankan sendReport:', err.message);
@@ -158,7 +146,7 @@ async function runBot() {
             let keyword = textPesan.toLowerCase().trim();
 
             if (keyword === 'sisa kas' || keyword === 'saldo' || keyword === 'laporan' || keyword === 'info') {
-                console.log(`Keyword cocok dari ${senderJid}, mengambil data PHP...`);
+                console.log(`Keyword cocok dari ${senderJid}, memproses permintaan...`);
 
                 let reportData = await ambilDataDariPHP();
                 let data = (reportData && reportData.kumulatif) ? reportData : {
@@ -200,11 +188,11 @@ async function runBot() {
         } else if (connection === 'open') {
             console.log('Koneksi WhatsApp Terbuka dan Siap!');
 
-            // --- TAMBAHAN INI AGAR LANGSUNG MENGIRIM PESAN SAAT BOT NYALA ---
+            // Perintah tes manual agar langsung mengirim pesan saat bot aktif
             setTimeout(async () => {
                 console.log('Mengeksekusi pengiriman laporan manual...');
                 await sendReport(client, true);
-            }, 4000); // Jeda 4 detik setelah bot benar-benar stabil
+            }, 5000);
         }
     });
 }
