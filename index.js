@@ -35,7 +35,7 @@ async function runBot() {
 
     const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    // Fungsi pengambil data yang aman dari proteksi hosting
+    // Fungsi pengambil data dengan penanganan proteksi hosting
     async function getReportData() {
         try {
             console.log('Mengambil data terbaru dari database InfinityFree...');
@@ -54,9 +54,9 @@ async function runBot() {
                 return rawData;
             }
 
-            // Jika terhalang halaman proteksi HTML InfinityFree, kembalikan null agar langsung pakai data stabil
+            // Jika terhalang halaman proteksi HTML InfinityFree
             if (typeof rawData === 'string' && rawData.includes('<html>')) {
-                console.log('Hosting meminta verifikasi anti-bot JavaScript. Menggunakan data sinkronisasi stabil.');
+                console.log('Hosting memblokir akses bot (proteksi JavaScript). Menggunakan data stabil.');
                 return null;
             }
 
