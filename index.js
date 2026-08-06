@@ -199,6 +199,12 @@ async function runBot() {
             }
         } else if (connection === 'open') {
             console.log('Koneksi WhatsApp Terbuka dan Siap!');
+
+            // --- TAMBAHAN INI AGAR LANGSUNG MENGIRIM PESAN SAAT BOT NYALA ---
+            setTimeout(async () => {
+                console.log('Mengeksekusi pengiriman laporan manual...');
+                await sendReport(client, true);
+            }, 4000); // Jeda 4 detik setelah bot benar-benar stabil
         }
     });
 }
