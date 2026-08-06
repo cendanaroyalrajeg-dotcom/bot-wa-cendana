@@ -8,7 +8,7 @@ const http = require('http');
 const PORT = process.env.PORT || 8080;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot WhatsApp Kas Warga Aktif Versi 6!\n');
+    res.end('Bot WhatsApp Kas Warga Aktif Versi 7!\n');
 }).listen(PORT, '0.0.0.0', () => {
     console.log(`Server HTTP aktif di port ${PORT}`);
 });
@@ -34,26 +34,28 @@ async function runBot() {
     // Fungsi jeda waktu (delay)
     const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    // Fungsi utama pengambil data dari InfinityFree & pengirim laporan
+    // Fungsi utama pengambil data murni dari database InfinityFree
     async function sendReport(sockInstance, testMode = false) {
         try {
-            console.log('Mengambil data terbaru dari database InfinityFree...');
+            console.log('Mengambil data murni dari database InfinityFree...');
             
             let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php', {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                    'Accept': 'application/json'
                 },
-                timeout: 10000
+                timeout: 12000
             });
 
             let reportData = response.data;
 
+            // Pengecekan ketat: Pastikan data benar-benar JSON dari database, bukan HTML proteksi hosting
+            if (typeof reportData === 'string' && reportData.includes('<html>')) {
+                throw new Error('Server InfinityFree memblokir request (terkena halaman proteksi HTML/Cloudflare).');
+            }
+
             if (!reportData || !reportData.kumulatif) {
-                console.log('Format data API terhalang proteksi hosting, menggunakan data stabil.');
-                reportData = {
-                    kumulatif: { total_masuk_sd: 10000000, total_keluar_sd: 4538500, sisa_kas_sd: 1761500 },
-                    bulan_ini: { masuk_bulan_ini: 40000, keluar_bulan_ini: 100000, mutasi_bulan_ini: -60000 }
-                };
+                throw new Error('Struktur data JSON dari database tidak lengkap.');
             }
 
             const formatRupiah = (val) => {
@@ -63,7 +65,7 @@ async function runBot() {
             let title = testMode ? "📊 *[TEST MANUAL] LAPORAN KAS CENDANA* 📊\n\n" : "📊 *LAPORAN HARIAN KAS WARGA CENDANA* 📊\n🗓️ *Update Pukul 21:30 WIB*\n\n";
 
             let content = title +
-                          "📌 *MUTASI KEUANGAN S/D SAAT INI:*\n" +
+                          "📌 *MUTASI KEUANGAN S/D SAAT INI (DATABASE):*\n" +
                           "• Total Penerimaan: " + formatRupiah(reportData.kumulatif.total_masuk_sd) + "\n" +
                           "• Total Pengeluaran: " + formatRupiah(reportData.kumulatif.total_keluar_sd) + "\n" +
                           "• *Total Sisa Uang Kas:* " + formatRupiah(reportData.kumulatif.sisa_kas_sd) + "\n\n" +
@@ -74,19 +76,25 @@ async function runBot() {
                           "🔗 Untuk melihat detail bisa klik link ini:\nhttps://cendanafamilybackup.rf.gd\n\n" +
                           "Terima kasih. 🙏";
 
-            // Mengirim ke setiap nomor satu per satu dengan aman menggunakan try-catch terpisah
+            // Mengirim ke setiap nomor satu per satu dengan jeda aman
             for (let num of targetNumbers) {
                 try {
                     let recipientJid = num + '@s.whatsapp.net';
                     await sockInstance.sendMessage(recipientJid, { text: content });
-                    console.log('Berhasil mengirim laporan ke nomor: ' + num);
+                    console.log('Berhasil mengirim laporan database ke nomor: ' + num);
                 } catch (errNum) {
                     console.log(`Gagal mengirim ke nomor ${num}:`, errNum.message);
                 }
-                await delay(4000); // Jeda 4 detik antar nomor agar tidak di-block WhatsApp
+                await delay(4000);
             }
         } catch (err) {
-            console.log('Gagal mengambil/mengirim laporan:', err.message);
+            console.log('GAGAL MENGAMBIL DATA DATABASE:', err.message);
+            // Kirim pesan peringatan ke nomor pertama bahwa koneksi database terhalang hosting
+            try {
+                await sockInstance.sendMessage(targetNumbers[0] + '@s.whatsapp.net', { 
+                    text: "⚠️ *PERINGATAN BOT KAS*\n\nGagal menarik data langsung dari database InfinityFree karena proteksi keamanan hosing gratis. Silakan cek koneksi atau file API di hosting." 
+                });
+            } catch (e) {}
         }
     }
 
@@ -121,23 +129,27 @@ async function runBot() {
             let keyword = textPesan.toLowerCase().trim();
 
             if (keyword === 'sisa kas' || keyword === 'saldo' || keyword === 'laporan' || keyword === 'info') {
-                console.log(`Keyword cocok dari ${senderJid}, mengirim info kas...`);
+                console.log(`Keyword cocok dari ${senderJid}, mengambil data database real-time...`);
 
                 let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php', {
-                    headers: { 'User-Agent': 'Mozilla/5.0' },
+                    headers: { 
+                        'User-Agent': 'Mozilla/5.0',
+                        'Accept': 'application/json'
+                    },
                     timeout: 8000
-                }).catch(() => null);
+                });
 
-                let data = response && response.data && response.data.kumulatif ? response.data : {
-                    kumulatif: { sisa_kas_sd: 1761500 },
-                    bulan_ini: { masuk_bulan_ini: 40000, keluar_bulan_ini: 100000 }
-                };
+                let data = response.data;
+                if (typeof data === 'string' && data.includes('<html>')) {
+                    await client.sendMessage(senderJid, { text: "⚠️ Gagal mengambil data real-time: Server hosting memblokir akses luar." });
+                    return;
+                }
 
                 const formatRupiah = (val) => {
                     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val || 0);
                 };
 
-                let replyText = `🤖 *INFORMASI KAS WARGA (REAL-TIME)*\n\n` +
+                let replyText = `🤖 *INFORMASI KAS WARGA (DARI DATABASE)*\n\n` +
                                 `• Total Sisa Uang Kas: *${formatRupiah(data.kumulatif.sisa_kas_sd)}*\n` +
                                 `• Masuk Bulan Ini: ${formatRupiah(data.bulan_ini.masuk_bulan_ini)}\n` +
                                 `• Keluar Bulan Ini: ${formatRupiah(data.bulan_ini.keluar_bulan_ini)}\n\n` +
@@ -146,7 +158,7 @@ async function runBot() {
                 await client.sendMessage(senderJid, { text: replyText });
             }
         } catch (err) {
-            console.log('Gagal memproses pesan masuk:', err.message);
+            console.log('Gagal memproses pesan chat masuk:', err.message);
         }
     });
 
