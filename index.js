@@ -43,6 +43,7 @@ async function runBot() {
     };
 
     // Fungsi utama pengirim laporan ke WhatsApp
+    // Fungsi utama pengirim laporan ke WhatsApp
     async function sendReport(sockInstance, testMode = false) {
         try {
             console.log('Mempersiapkan laporan keuangan kas warga...');
@@ -68,13 +69,15 @@ async function runBot() {
 
             for (let num of targetNumbers) {
                 try {
-                    let recipientJid = num + '@s.whatsapp.net';
+                    let recipientJid = num.trim() + '@s.whatsapp.net';
+                    
+                    // Langsung kirim pesan tanpa filter pengecekan agar menjangkau semua nomor target
                     await sockInstance.sendMessage(recipientJid, { text: content });
                     console.log('Berhasil mengirim laporan ke nomor: ' + num);
                 } catch (errNum) {
                     console.log(`Gagal kirim ke ${num}:`, errNum.message);
                 }
-                await delay(3000); // Jeda 3 detik antar nomor agar aman
+                await delay(4000); // Jeda 4 detik antar nomor agar server WhatsApp tidak menolak
             }
         } catch (err) {
             console.log('Gagal menjalankan sendReport:', err.message);
