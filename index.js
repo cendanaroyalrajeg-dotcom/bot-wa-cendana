@@ -34,7 +34,7 @@ async function runBot() {
 
     const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    // Data keuangan stabil yang dikelola langsung di bot
+    // Data keuangan stabil yang dikelola langsung di bot tanpa error koneksi luar
     const getStableData = () => {
         return {
             kumulatif: { total_masuk_sd: 6300000, total_keluar_sd: 4538500, sisa_kas_sd: 1761500 },
@@ -42,7 +42,6 @@ async function runBot() {
         };
     };
 
-    // Fungsi utama pengirim laporan ke WhatsApp
     // Fungsi utama pengirim laporan ke WhatsApp
     async function sendReport(sockInstance, testMode = false) {
         try {
@@ -70,14 +69,12 @@ async function runBot() {
             for (let num of targetNumbers) {
                 try {
                     let recipientJid = num.trim() + '@s.whatsapp.net';
-                    
-                    // Langsung kirim pesan tanpa filter pengecekan agar menjangkau semua nomor target
                     await sockInstance.sendMessage(recipientJid, { text: content });
                     console.log('Berhasil mengirim laporan ke nomor: ' + num);
                 } catch (errNum) {
                     console.log(`Gagal kirim ke ${num}:`, errNum.message);
                 }
-                await delay(4000); // Jeda 4 detik antar nomor agar server WhatsApp tidak menolak
+                await delay(4000); // Jeda 4 detik antar nomor
             }
         } catch (err) {
             console.log('Gagal menjalankan sendReport:', err.message);
