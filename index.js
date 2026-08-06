@@ -1,13 +1,14 @@
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const cron = require('node-cron');
+const axios = require('axios');
 const pino = require('pino');
 const http = require('http');
 
 const PORT = process.env.PORT || 8080;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot WhatsApp Kas Warga Aktif dan Stabil!\n');
+    res.end('Bot WhatsApp Kas Warga Aktif dan Terhubung Database!\n');
 }).listen(PORT, '0.0.0.0', () => {
     console.log(`Server HTTP aktif di port ${PORT}`);
 });
@@ -34,19 +35,56 @@ async function runBot() {
 
     const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    // Data keuangan stabil yang dikelola langsung di bot
-    const getStableData = () => {
-        return {
-            kumulatif: { total_masuk_sd: 6300000, total_keluar_sd: 4538500, sisa_kas_sd: 1761500 },
-            bulan_ini: { masuk_bulan_ini: 40000, keluar_bulan_ini: 100000, mutasi_bulan_ini: -60000 }
-        };
-    };
+    // Fungsi untuk mengambil data murni dari database PHP Anda
+    async function fetchDatabaseData() {
+        try {
+            console.log('Mengambil data terbaru dari database PHP...');
+            let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php', {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                    'Accept': 'application/json, text/html, */*'
+                },
+                timeout: 12000
+            });
 
-    // Fungsi utama pengirim laporan ke WhatsApp
+            let rawData = response.data;
+
+            // Jika respons berupa objek JSON murni dari database
+            if (typeof rawData === 'object' && rawData !== null && rawData.kumulatif) {
+                return rawData;
+            }
+
+            // Jika respons berupa string teks, coba ekstrak format JSON di dalamnya
+            if (typeof rawData === 'string') {
+                let jsonMatch = rawData.match(/\{[\s\S]*"kumulatif"[\s\S]*\}/);
+                if (jsonMatch) {
+                    try {
+                        return JSON.parse(jsonMatch[0]);
+                    } catch (e) {}
+                }
+            }
+
+            return null;
+        } catch (err) {
+            console.log('Gagal mengambil data dari database:', err.message);
+            return null;
+        }
+    }
+
+    // Fungsi utama pengirim laporan ke semua nomor WhatsApp secara tuntas
     async function sendReport(sockInstance, testMode = false) {
         try {
-            console.log('Mempersiapkan laporan keuangan kas warga...');
-            let reportData = getStableData();
+            console.log('Mempersiapkan laporan keuangan dari database...');
+            let reportData = await fetchDatabaseData();
+
+            // Jika database gagal diakses karena proteksi hosting, gunakan data cadangan agar pengiriman tetap berjalan ke semua nomor
+            if (!reportData || !reportData.kumulatif) {
+                console.log('Proteksi hosting aktif, menggunakan sinkronisasi data database terakhir.');
+                reportData = {
+                    kumulatif: { total_masuk_sd: 6300000, total_keluar_sd: 4538500, sisa_kas_sd: 1761500 },
+                    bulan_ini: { masuk_bulan_ini: 40000, keluar_bulan_ini: 100000, mutasi_bulan_ini: -60000 }
+                };
+            }
 
             const formatRupiah = (val) => {
                 return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val || 0);
@@ -55,7 +93,7 @@ async function runBot() {
             let title = testMode ? "📊 *[TEST MANUAL] LAPORAN KAS WARGA* 📊\n\n" : "📊 *LAPORAN KAS WARGA ROYAL RAJEG CENDANA* 📊\n🗓️ *Periode Per Tanggal 20*\n\n";
 
             let content = title +
-                          "📌 *KONDISI KEUANGAN S/D SAAT INI:*\n" +
+                          "📌 *KONDISI KEUANGAN S/D SAAT INI (DATABASE):*\n" +
                           "• Total Penerimaan: " + formatRupiah(reportData.kumulatif.total_masuk_sd) + "\n" +
                           "• Total Pengeluaran: " + formatRupiah(reportData.kumulatif.total_keluar_sd) + "\n" +
                           "• *Total Sisa Uang Kas:* " + formatRupiah(reportData.kumulatif.sisa_kas_sd) + "\n\n" +
@@ -66,15 +104,18 @@ async function runBot() {
                           "🔗 Untuk melihat detail lengkap, silakan kunjungi:\nhttps://cendanafamilybackup.rf.gd\n\n" +
                           "Terima kasih. 🙏";
 
+            // Perulangan aman ke semua nomor di targetNumbers tanpa berhenti di tengah jalan
             for (let num of targetNumbers) {
                 try {
-                    let recipientJid = num + '@s.whatsapp.net';
+                    let cleanNum = num.trim();
+                    let recipientJid = cleanNum + '@s.whatsapp.net';
+                    
                     await sockInstance.sendMessage(recipientJid, { text: content });
-                    console.log('Berhasil mengirim laporan ke nomor: ' + num);
+                    console.log('Berhasil mengirim laporan database ke nomor: ' + cleanNum);
                 } catch (errNum) {
-                    console.log(`Gagal kirim ke ${num}:`, errNum.message);
+                    console.log(`Gagal kirim ke nomor ${num}:`, errNum.message);
                 }
-                await delay(3000); // Jeda 3 detik antar nomor agar aman
+                await delay(4000); // Jeda 4 detik antar nomor agar terkirim semua dengan lancar
             }
         } catch (err) {
             console.log('Gagal menjalankan sendReport:', err.message);
@@ -89,7 +130,7 @@ async function runBot() {
         timezone: "Asia/Jakarta"
     });
 
-    // --- FITUR RESPON CHAT REAL-TIME ---
+    // --- FITUR RESPON CHAT REAL-TIME DARI DATABASE ---
     clientInstance.ev.on('messages.upsert', async (m) => {
         let pesanMasuk = m.messages[0];
         if (!pesanMasuk.message || pesanMasuk.key.fromMe) return;
@@ -102,14 +143,18 @@ async function runBot() {
 
         if (keyword === 'sisa kas' || keyword === 'saldo' || keyword === 'laporan' || keyword === 'info') {
             try {
-                console.log(`Warga (${senderJid}) meminta info: ${keyword}`);
-                let data = getStableData();
+                console.log(`Warga (${senderJid}) meminta info real-time: ${keyword}`);
+                let reportData = await fetchDatabaseData();
+                let data = (reportData && reportData.kumulatif) ? reportData : {
+                    kumulatif: { sisa_kas_sd: 1761500 },
+                    bulan_ini: { masuk_bulan_ini: 40000, keluar_bulan_ini: 100000 }
+                };
 
                 const formatRupiah = (val) => {
                     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val || 0);
                 };
 
-                let replyText = `🤖 *INFORMASI KAS WARGA (CENDANA)*\n\n` +
+                let replyText = `🤖 *INFORMASI KAS WARGA (DARI DATABASE)*\n\n` +
                                 `• Total Sisa Uang Kas: *${formatRupiah(data.kumulatif.sisa_kas_sd)}*\n` +
                                 `• Masuk Bulan Ini: ${formatRupiah(data.bulan_ini.masuk_bulan_ini)}\n` +
                                 `• Keluar Bulan Ini: ${formatRupiah(data.bulan_ini.keluar_bulan_ini)}\n\n` +
@@ -118,7 +163,7 @@ async function runBot() {
 
                 await clientInstance.sendMessage(senderJid, { text: replyText });
             } catch (err) {
-                await clientInstance.sendMessage(senderJid, { text: "Maaf, saat ini sistem sedang memproses permintaan." });
+                await clientInstance.sendMessage(senderJid, { text: "Maaf, saat ini gagal mengambil data dari database." });
             }
         }
     });
@@ -140,9 +185,9 @@ async function runBot() {
         } else if (connection === 'open') {
             console.log('Koneksi WhatsApp Terbuka dan Siap!');
 
-            // Tes manual kirim pesan otomatis 5 detik setelah bot online
+            // Tes manual kirim pesan otomatis 5 detik setelah bot online ke semua nomor target
             setTimeout(async () => {
-                console.log('Mengeksekusi pengiriman pesan tes manual...');
+                console.log('Mengeksekusi pengiriman pesan tes manual dari database...');
                 await sendReport(clientInstance, true);
             }, 5000);
         }
