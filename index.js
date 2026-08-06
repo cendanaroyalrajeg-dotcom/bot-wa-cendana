@@ -15,44 +15,59 @@ http.createServer((req, res) => {
 
 let clientInstance;
 
-// Fungsi utama pengirim laporan ke WhatsApp
-    async function sendReport(sockInstance, testMode = false) {
+async function runBot() {
+    console.log('Inisialisasi ulang bot...');
+    const { state, saveCreds } = await useMultiFileAuthState('auth_session');
+    
+    clientInstance = makeWASocket({
+        auth: state,
+        printQRInTerminal: true,
+        logger: pino({ level: 'silent' })
+    });
+
+    clientInstance.ev.on('creds.update', saveCreds);
+
+    const targetNumbers = [
+        '628976398855',
+        '628568639957',
+        '6281388323996'
+    ];
+
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    // Fungsi murni pengambil data dari database PHP InfinityFree
+    async function fetchDatabaseData() {
         try {
-            console.log('Mempersiapkan laporan keuangan kas warga...');
-            let reportData = getStableData();
+            console.log('Mengambil data terbaru dari database PHP...');
+            let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php', {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                    'Accept': 'application/json, text/html, */*'
+                },
+                timeout: 12000
+            });
 
-            const formatRupiah = (val) => {
-                return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val || 0);
-            };
+            let rawData = response.data;
 
-            let title = testMode ? "📊 *[TEST MANUAL] LAPORAN KAS WARGA* 📊\n\n" : "📊 *LAPORAN KAS WARGA ROYAL RAJEG CENDANA* 📊\n🗓️ *Periode Per Tanggal 20*\n\n";
-
-            let content = title +
-                          "📌 *KONDISI KEUANGAN S/D SAAT INI:*\n" +
-                          "• Total Penerimaan: " + formatRupiah(reportData.kumulatif.total_masuk_sd) + "\n" +
-                          "• Total Pengeluaran: " + formatRupiah(reportData.kumulatif.total_keluar_sd) + "\n" +
-                          "• *Total Sisa Uang Kas:* " + formatRupiah(reportData.kumulatif.sisa_kas_sd) + "\n\n" +
-                          "📈 *MUTASI BULAN INI:*\n" +
-                          "• Masuk Bulan Ini: " + formatRupiah(reportData.bulan_ini.masuk_bulan_ini) + "\n" +
-                          "• Keluar Bulan Ini: " + formatRupiah(reportData.bulan_ini.keluar_bulan_ini) + "\n" +
-                          "• *Mutasi Saldo Bulan Ini:* " + formatRupiah(reportData.bulan_ini.mutasi_bulan_ini) + "\n\n" +
-                          "🔗 Untuk melihat detail lengkap, silakan kunjungi:\nhttps://cendanafamilybackup.rf.gd\n\n" +
-                          "Terima kasih. 🙏";
-
-            for (let num of targetNumbers) {
-                try {
-                    let recipientJid = num.trim() + '@s.whatsapp.net';
-                    
-                    // Langsung kirim pesan tanpa filter pengecekan agar menjangkau semua nomor target
-                    await sockInstance.sendMessage(recipientJid, { text: content });
-                    console.log('Berhasil mengirim laporan ke nomor: ' + num);
-                } catch (errNum) {
-                    console.log(`Gagal kirim ke ${num}:`, errNum.message);
-                }
-                await delay(4000); // Jeda 4 detik antar nomor agar server WhatsApp tidak menolak
+            // Jika respons berupa objek JSON murni dari database
+            if (typeof rawData === 'object' && rawData !== null && rawData.kumulatif) {
+                return rawData;
             }
+
+            // Jika berbentuk string teks/HTML (terkena halaman proteksi), coba parse JSON di dalamnya
+            if (typeof rawData === 'string') {
+                let jsonMatch = rawData.match(/\{[\s\S]*"kumulatif"[\s\S]*\}/);
+                if (jsonMatch) {
+                    try {
+                        return JSON.parse(jsonMatch[0]);
+                    } catch (e) {}
+                }
+            }
+
+            return null;
         } catch (err) {
-            console.log('Gagal menjalankan sendReport:', err.message);
+            console.log('Gagal mengambil data dari database:', err.message);
+            return null;
         }
     }
 
@@ -88,7 +103,7 @@ let clientInstance;
                           "🔗 Untuk melihat detail lengkap, silakan kunjungi:\nhttps://cendanafamilybackup.rf.gd\n\n" +
                           "Terima kasih. 🙏";
 
-            // Mengirim ke setiap nomor secara berurutan dengan penanganan error aman
+            // Mengirim ke setiap nomor secara berurutan dengan jeda aman agar semuanya terkirim
             for (let num of targetNumbers) {
                 try {
                     let cleanNum = num.trim();
@@ -99,7 +114,7 @@ let clientInstance;
                 } catch (errNum) {
                     console.log(`Gagal kirim ke nomor ${num}:`, errNum.message);
                 }
-                await delay(4000); // Jeda aman 4 detik antar nomor agar tidak terhenti
+                await delay(4000); // Jeda 4 detik antar nomor
             }
         } catch (err) {
             console.log('Gagal menjalankan sendReport:', err.message);
