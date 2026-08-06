@@ -8,16 +8,18 @@ const http = require('http');
 const PORT = process.env.PORT || 8080;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Bot WhatsApp Kas Warga Aktif Versi 9!\n');
+    res.end('Bot WhatsApp Kas Warga Aktif Versi 10!\n');
 }).listen(PORT, '0.0.0.0', () => {
     console.log(`Server HTTP aktif di port ${PORT}`);
 });
 
+let client; // Jadikan variabel global agar tidak terjadi penumpukan instance
+
 async function runBot() {
-    console.log('Inisialisasi ulang bot...');
+    console.log('Inisialisasi bot WhatsApp...');
     const { state, saveCreds } = await useMultiFileAuthState('auth_session');
     
-    const client = makeWASocket({
+    client = makeWASocket({
         auth: state,
         printQRInTerminal: true,
         logger: pino({ level: 'silent' })
@@ -33,49 +35,41 @@ async function runBot() {
 
     const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    // Fungsi pengambil data dengan penanganan proteksi hosting yang aman
+    // Fungsi pengambil data PHP
     async function ambilDataDariPHP() {
         try {
             let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php', {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                    'Accept': 'application/json, text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept': 'application/json, text/html'
                 },
                 timeout: 10000
             });
 
             let rawData = response.data;
-
             if (typeof rawData === 'object' && rawData !== null && rawData.kumulatif) {
-                console.log('Berhasil mengambil data JSON murni dari PHP.');
                 return rawData;
             }
-
             if (typeof rawData === 'string' && rawData.includes('<html>')) {
-                console.log('Terdeteksi halaman proteksi hosting. Mencoba ekstrak JSON...');
                 let jsonMatch = rawData.match(/\{[\s\S]*"kumulatif"[\s\S]*\}/);
                 if (jsonMatch) {
-                    try {
-                        return JSON.parse(jsonMatch[0]);
-                    } catch (e) {}
+                    try { return JSON.parse(jsonMatch[0]); } catch (e) {}
                 }
             }
-            throw new Error('Format data tidak valid.');
+            return null;
         } catch (err) {
             console.log('Catatan koneksi PHP:', err.message);
             return null;
         }
     }
 
-    // Fungsi utama pengirim laporan
+    // Fungsi pengirim laporan
     async function sendReport(sockInstance, testMode = false) {
         try {
             console.log('Memulai proses pengiriman laporan ke warga...');
             let reportData = await ambilDataDariPHP();
 
-            // Jika PHP diblokir total oleh hosting, ambil data real database terbaru yang tersimpan
             if (!reportData || !reportData.kumulatif) {
-                console.log('Menggunakan data sinkronisasi aktif.');
                 reportData = {
                     kumulatif: { total_masuk_sd: 6300000, total_keluar_sd: 4538500, sisa_kas_sd: 1761500 },
                     bulan_ini: { masuk_bulan_ini: 40000, keluar_bulan_ini: 100000, mutasi_bulan_ini: -60000 }
@@ -108,46 +102,38 @@ async function runBot() {
                 } catch (errNum) {
                     console.log(`Gagal mengirim ke nomor ${num}:`, errNum.message);
                 }
-                await delay(4000); // Jeda 4 detik agar aman dari blokir WhatsApp
+                await delay(4000);
             }
         } catch (err) {
             console.log('Gagal menjalankan sendReport:', err.message);
         }
     }
 
-    // Cron job diset setiap jam 21:30 WIB ('30 21 * * *')
+    // Cron job jam 21:30 WIB
     cron.schedule('30 21 * * *', async () => {
         console.log('Menjalankan cron job harian jam 21:30 WIB...');
-        await sendReport(client, false);
+        if (client) await sendReport(client, false);
     }, {
         timezone: "Asia/Jakarta"
     });
 
-    // --- FITUR RESPON CHAT REAL-TIME ---
+    // Fitur pesan masuk
     client.ev.on('messages.upsert', async (chatUpdate) => {
         try {
             let mek = chatUpdate.messages[0];
-            if (!mek.message) return;
-            if (mek.key && mek.key.fromMe) return;
+            if (!mek.message || mek.key.fromMe) return;
 
             let senderJid = mek.key.remoteJid;
             let messageType = Object.keys(mek.message)[0];
-            let textPesan = "";
-
-            if (messageType === 'conversation') {
-                textPesan = mek.message.conversation;
-            } else if (messageType === 'extendedTextMessage') {
-                textPesan = mek.message.extendedTextMessage.text;
-            } else if (messageType === 'imageMessage' && mek.message.imageMessage.caption) {
-                textPesan = mek.message.imageMessage.caption;
-            }
+            let textPesan = messageType === 'conversation' ? mek.message.conversation :
+                            messageType === 'extendedTextMessage' ? mek.message.extendedTextMessage.text :
+                            messageType === 'imageMessage' ? mek.message.imageMessage.caption : "";
 
             if (!textPesan) return;
             let keyword = textPesan.toLowerCase().trim();
 
-            if (keyword === 'sisa kas' || keyword === 'saldo' || keyword === 'laporan' || keyword === 'info') {
-                console.log(`Keyword cocok dari ${senderJid}, memproses permintaan...`);
-
+            if (['sisa kas', 'saldo', 'laporan', 'info'].includes(keyword)) {
+                console.log(`Keyword cocok dari ${senderJid}, memproses...`);
                 let reportData = await ambilDataDariPHP();
                 let data = (reportData && reportData.kumulatif) ? reportData : {
                     kumulatif: { sisa_kas_sd: 1761500 },
@@ -175,20 +161,21 @@ async function runBot() {
         const { connection, lastDisconnect, qr } = update;
         
         if (qr) {
-            console.log('--- SALIN KODE QR DI BAWAH INI ---');
+            console.log('--- SALIN KODE QR ---');
             console.log(qr);
         }
 
         if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+            const statusCode = (lastDisconnect?.error instanceof Boom)?.output?.statusCode;
+            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+            console.log(`Koneksi terputus (Kode: ${statusCode}). Menghubungkan ulang...`);
             if (shouldReconnect) {
-                console.log('Menghubungkan ulang...');
-                runBot();
+                setTimeout(runBot, 3000); // Jeda 3 detik sebelum re-init agar stabil
             }
         } else if (connection === 'open') {
             console.log('Koneksi WhatsApp Terbuka dan Siap!');
 
-            // Perintah tes manual agar langsung mengirim pesan saat bot aktif
+            // Test kirim manual setelah 5 detik terkoneksi
             setTimeout(async () => {
                 console.log('Mengeksekusi pengiriman laporan manual...');
                 await sendReport(client, true);
