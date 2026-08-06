@@ -35,11 +35,12 @@ async function runBot() {
 
     const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    // FUNGSI UTAMA PENGAMBIL DATA MURNI DARI DATABASE PHP (SESUAI SCRIPT LAMA ANDA)
+    // FUNGSI UTAMA PENGAMBIL DATA MURNI DARI DATABASE JAGOAN HOSTING
     async function sendReport(sockInstance, testMode = false) {
         try {
-            console.log('Mengambil data terbaru dari database InfinityFree...');
+            console.log('Mengambil data terbaru dari database Jagoan Hosting...');
             
+            // URL sudah diarahkan ke subdomain baru Anda
             let response = await axios.get('https://cendana.fanasystem.my.id/api-ai.php', {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -108,7 +109,8 @@ async function runBot() {
             try {
                 console.log(`Warga (${senderJid}) meminta info real-time: ${keyword}`);
                 
-                let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php', {
+                // URL real-time chat juga diarahkan ke subdomain baru Anda
+                let response = await axios.get('https://cendana.fanasystem.my.id/api-ai.php', {
                     headers: { 'User-Agent': 'Mozilla/5.0' },
                     timeout: 8000
                 });
