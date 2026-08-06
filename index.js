@@ -40,7 +40,7 @@ async function runBot() {
         try {
             console.log('Mengambil data terbaru dari database InfinityFree...');
             
-            let response = await axios.get('http://cendanafamilybackup.rf.gd/api-ai.php', {
+            let response = await axios.get('https://cendana.fanasystem.my.id/api-ai.php', {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                 },
